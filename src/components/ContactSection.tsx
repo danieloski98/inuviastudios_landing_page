@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, Mail, Calendar, MapPin, Check } from 'lucide-react';
+import { ArrowUpRight, Mail, Calendar, MapPin, Check, Loader2, AlertCircle } from 'lucide-react';
 
 interface ContactSectionProps {
   initialService?: string;
@@ -16,7 +16,9 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ initialService }
     email: '',
     message: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialService) {
@@ -30,9 +32,38 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ initialService }
     }
   }, [initialService]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          service: selectedService,
+          message: formData.message,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to submit inquiry. Please try again.');
+      }
+
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error('Contact submit error:', err);
+      setErrorMessage(
+        err.message || 'Something went wrong. Please try again or email us directly at support@inuviastudios.com.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const services = [
@@ -108,13 +139,19 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ initialService }
                     className="text-2xl font-bold text-[#0E1030] dark:text-white mb-2"
                     style={{ fontFamily: 'var(--font-heading)' }}
                   >
-                    Inquiry Received
+                    Inquiry Sent Successfully!
                   </h3>
-                  <p className="text-xs text-[#53587A] dark:text-[#A6AECB] max-w-sm mx-auto mb-6 leading-relaxed">
-                    Thank you, <strong>{formData.name || 'there'}</strong>! We will review your message regarding <strong>{selectedService}</strong> and get back to you shortly.
+                  <p className="text-xs text-[#53587A] dark:text-[#A6AECB] max-w-sm mx-auto mb-2 leading-relaxed">
+                    Thank you, <strong>{formData.name || 'there'}</strong>! An email with your inquiry regarding <strong>{selectedService}</strong> has been routed to <strong>support@inuviastudios.com</strong>.
+                  </p>
+                  <p className="text-[11px] text-[#53587A] dark:text-[#A6AECB] max-w-sm mx-auto mb-6">
+                    Our engineering team reviews all incoming inquiries and will reply to <strong>{formData.email}</strong> within 24 hours.
                   </p>
                   <button
-                    onClick={() => setSubmitted(false)}
+                    onClick={() => {
+                      setSubmitted(false);
+                      setFormData({ name: '', email: '', message: '' });
+                    }}
                     className="px-6 py-2.5 rounded-full bg-[#1B1F4B] dark:bg-[#5B4BFF] text-xs font-semibold text-white hover:bg-[#242963] dark:hover:bg-[#4A3AF0] transition-colors"
                   >
                     Submit Another Inquiry
@@ -122,6 +159,16 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ initialService }
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-5">
+                  {errorMessage && (
+                    <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs flex items-start gap-3">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold">Unable to dispatch inquiry</div>
+                        <div className="mt-0.5">{errorMessage}</div>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#53587A] dark:text-[#A6AECB] block mb-2">
                       I am interested in:
@@ -152,10 +199,11 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ initialService }
                       <input
                         type="text"
                         required
+                        disabled={isSubmitting}
                         placeholder="Alex Morgan"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full p-3 rounded-2xl bg-white dark:bg-[#0E1030] border border-[#D5DAEC] dark:border-[#262C6A] text-[#0E1030] dark:text-[#F4F5FB] text-xs focus:outline-none focus:border-[#5B4BFF] placeholder-[#7A81A4] dark:placeholder-[#A6AECB]/40"
+                        className="w-full p-3 rounded-2xl bg-white dark:bg-[#0E1030] border border-[#D5DAEC] dark:border-[#262C6A] text-[#0E1030] dark:text-[#F4F5FB] text-xs focus:outline-none focus:border-[#5B4BFF] placeholder-[#7A81A4] dark:placeholder-[#A6AECB]/40 disabled:opacity-50"
                       />
                     </div>
                     <div>
@@ -165,10 +213,11 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ initialService }
                       <input
                         type="email"
                         required
+                        disabled={isSubmitting}
                         placeholder="alex@company.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full p-3 rounded-2xl bg-white dark:bg-[#D5DAEC] dark:bg-[#0E1030] border border-[#D5DAEC] dark:border-[#262C6A] text-[#0E1030] dark:text-[#F4F5FB] text-xs focus:outline-none focus:border-[#5B4BFF] placeholder-[#7A81A4] dark:placeholder-[#A6AECB]/40"
+                        className="w-full p-3 rounded-2xl bg-white dark:bg-[#0E1030] border border-[#D5DAEC] dark:border-[#262C6A] text-[#0E1030] dark:text-[#F4F5FB] text-xs focus:outline-none focus:border-[#5B4BFF] placeholder-[#7A81A4] dark:placeholder-[#A6AECB]/40 disabled:opacity-50"
                       />
                     </div>
                   </div>
@@ -180,19 +229,30 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ initialService }
                     <textarea
                       required
                       rows={4}
+                      disabled={isSubmitting}
                       placeholder="Tell us about the software you want to build, the architectural questions you have, or the topics you want tutoring on..."
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      className="w-full p-3 rounded-2xl bg-white dark:bg-[#0E1030] border border-[#D5DAEC] dark:border-[#262C6A] text-[#0E1030] dark:text-[#F4F5FB] text-xs focus:outline-none focus:border-[#5B4BFF] leading-relaxed placeholder-[#7A81A4] dark:placeholder-[#A6AECB]/40"
+                      className="w-full p-3 rounded-2xl bg-white dark:bg-[#0E1030] border border-[#D5DAEC] dark:border-[#262C6A] text-[#0E1030] dark:text-[#F4F5FB] text-xs focus:outline-none focus:border-[#5B4BFF] leading-relaxed placeholder-[#7A81A4] dark:placeholder-[#A6AECB]/40 disabled:opacity-50"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-4 rounded-full font-bold text-xs bg-[#5B4BFF] text-white hover:bg-[#4A3AF0] hover:shadow-[0_4px_25px_rgba(91,75,255,0.35)] transition-all flex items-center justify-center gap-2 group tracking-wide"
+                    disabled={isSubmitting}
+                    className="w-full py-4 rounded-full font-bold text-xs bg-[#5B4BFF] text-white hover:bg-[#4A3AF0] hover:shadow-[0_4px_25px_rgba(91,75,255,0.35)] transition-all flex items-center justify-center gap-2 group tracking-wide disabled:opacity-75 disabled:cursor-not-allowed"
                   >
-                    <span>Send Inquiry</span>
-                    <ArrowUpRight className="w-4 h-4 stroke-[2.5] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Sending to support@inuviastudios.com...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Send Inquiry to support@inuviastudios.com</span>
+                        <ArrowUpRight className="w-4 h-4 stroke-[2.5] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                      </>
+                    )}
                   </button>
                 </form>
               )}
